@@ -5,7 +5,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
 from time import sleep
 from datetime import datetime, timedelta
-from selenium.webdriver.common.action_chains import ActionChains
+import xlwings as xw
 
 # Setando timezone para testo do dia da semana
 locale.setlocale(locale.LC_TIME, 'pt_BR.utf8')
@@ -44,9 +44,10 @@ brw.maximize_window()
 # Abertura da página do relatório
 brw.find_element(
     By.XPATH, '/html/body/aside/section/div[4]/div/span/div/span[1]/i').click()
+sleep(0.5)
 brw.find_element(
     By.XPATH, '/html/body/aside/section/div[4]/div/span/ul/li[2]/div/a/span/span[2]').click()
-sleep(2)
+sleep(3)
 brw.find_element(
     By.XPATH, '/html/body/section[1]/div[3]/div[1]/div/div/div/div/div[2]/a[2]/div/div/h6').click()
 sleep(2)
@@ -104,7 +105,7 @@ for agente in agentes:
     sleep(1)
     lista_agentes.send_keys(Keys.ENTER)
 
-
+sleep(1)
 # Clicar em gerar relatório
 brw.find_element(
     By.XPATH, '/html/body/section[1]/div[3]/div[1]/div/div/div/div/form/div[2]/div[2]/button[3]').click()
@@ -115,7 +116,7 @@ diretorio = r"C:\Users\richard.moliner\Downloads"
 
 
 # Excluir um arquivo específico (substitua 'nome_do_arquivo.txt' pelo nome do arquivo que deseja excluir)
-arquivo_a_excluir = os.path.join(diretorio, 'horas de ontem.xlsx')
+arquivo_a_excluir = os.path.join(diretorio, 'horas_de_ontem.xlsx')
 if os.path.exists(arquivo_a_excluir):
     os.remove(arquivo_a_excluir)
     print(f"O arquivo {arquivo_a_excluir} foi excluído.")
@@ -146,7 +147,7 @@ for arquivo in arquivos:
 # Verifique se encontramos um arquivo para renomear
 if ultimo_arquivo:
     # Crie uma data para 'horas de ontem'
-    novo_nome = 'horas de ontem.xlsx'
+    novo_nome = 'horas_de_ontem.xlsx'
 
     # Renomeie o último arquivo baixado
     os.rename(ultimo_arquivo, os.path.join(diretorio, novo_nome))
@@ -155,9 +156,52 @@ else:
     print("Nenhum arquivo encontrado para renomear")
 
 # Logout
+brw.minimize_window()
 brw.find_element(
     By.XPATH, '/html/body/header/div/div[2]/div[2]/div/img').click()
 brw.find_element(
     By.XPATH, '/html/body/header/div/div[2]/div[2]/ul/li[12]/a/div').click()
-sleep(1)
 brw.quit()
+
+# Abra o arquivo Excel
+path = "C:/Users/richard.moliner/Downloads/horas_de_ontem.xlsx"
+wb = xw.Book(path)
+
+# Especifique a planilha e a coluna que você deseja excluir
+planilha = wb.sheets['Sheet']  # Altere para o nome da planilha desejada
+
+colunas_a_excluir = ['A:I', 'B:F', 'C:H']  # Colunas a excluir
+
+for coluna_range in colunas_a_excluir:
+    coluna = planilha.range(coluna_range)
+    coluna.delete()
+
+# Aguarde um momento para as colunas serem excluídas
+sleep(2)
+
+# Especifique o intervalo de dados para a tabela dinâmica
+intervalo_dados = 'A1:B130'
+
+# Especifique onde deseja que a tabela dinâmica seja criada
+celula_tabela_dinamica = 'C2'
+
+# Crie a tabela dinâmica no Excel usando a função Create em um objeto PivotTables
+tabela_dinamica_range = planilha.range(intervalo_dados)
+pivot_tables = planilha.pivot_tables.add(tabela_dinamica_range, tabledestination=celula_tabela_dinamica)
+
+# Adicione 'Agente' às linhas da tabela dinâmica
+pivot_tables.pivotfields('Agente').orientation = xw.constants.PivotFieldOrientation.xlRowField
+
+# Adicione 'Horas Trabalhadas' aos valores da tabela dinâmica (como soma)
+campo_horas_trabalhadas = pivot_tables.pivotfields('Horas Trabalhadas')
+campo_horas_trabalhadas.orientation = xw.constants.PivotFieldOrientation.xlDataField
+campo_horas_trabalhadas.function = xw.constants.PivotFieldFunction.xlSum
+
+# Formate a célula de valores da tabela dinâmica para 'hh:mm:ss'
+planilha.range(celula_tabela_dinamica).expand('table').columns[-1].number_format = 'hh:mm:ss'
+
+# Salve o arquivo Excel com a tabela dinâmica
+wb.save()
+
+# Feche o arquivo Excel
+wb.close()
